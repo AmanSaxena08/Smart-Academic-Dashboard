@@ -1,7 +1,10 @@
 import axios from "axios";
 
+// ✅ Define once and reuse everywhere
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: BASE_URL,
 });
 
 API.interceptors.request.use((config) => {
@@ -20,7 +23,8 @@ API.interceptors.response.use(
       original._retry = true;
       try {
         const refresh = localStorage.getItem("refresh_token");
-        const res = await axios.post("http://127.0.0.1:8000/api/users/token/refresh/", { refresh });
+        // ✅ Uses BASE_URL — not hardcoded localhost
+        const res = await axios.post(`${BASE_URL}/users/token/refresh/`, { refresh });
         localStorage.setItem("access_token", res.data.access);
         original.headers.Authorization = `Bearer ${res.data.access}`;
         return API(original);
