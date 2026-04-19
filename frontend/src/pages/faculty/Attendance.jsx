@@ -153,21 +153,25 @@ export default function FacultyAttendance() {
     }
   };
 
-  const handleDownloadExcel = async (e) => {
+const handleDownloadExcel = async (e) => {
     e.preventDefault();
     setDownloadError("");
     setDownloading(true);
     try {
-      let url = "/attendance/download-excel/?";
-      if (downloadFilters.subject_id) url += `subject_id=${downloadFilters.subject_id}&`;
-      if (downloadFilters.section_id) url += `section_id=${downloadFilters.section_id}&`;
-      if (downloadFilters.date_from) url += `date_from=${downloadFilters.date_from}&`;
-      if (downloadFilters.date_to) url += `date_to=${downloadFilters.date_to}&`;
+      // ✅ Build full URL with backend base URL
+      let params = "";
+      if (downloadFilters.subject_id) params += `subject_id=${downloadFilters.subject_id}&`;
+      if (downloadFilters.section_id) params += `section_id=${downloadFilters.section_id}&`;
+      if (downloadFilters.date_from) params += `date_from=${downloadFilters.date_from}&`;
+      if (downloadFilters.date_to) params += `date_to=${downloadFilters.date_to}&`;
 
-   const token = localStorage.getItem("access_token");
-const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
+      // ✅ Use full backend URL explicitly
+      const fullUrl = `${import.meta.env.VITE_API_BASE_URL}/attendance/download-excel/?${params}`;
+
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(fullUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (!response.ok) {
         const err = await response.json();
@@ -185,6 +189,7 @@ const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
       link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
+
     } catch (err) {
       setDownloadError("Download failed. Please try again.");
     } finally {
