@@ -17,4 +17,4 @@ if not User.objects.filter(username=username).exists():
 else:
     print('Superuser already exists')
 EOF
-python manage.py seed_data
+python manage.py seed_data.py
