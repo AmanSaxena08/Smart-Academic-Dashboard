@@ -164,10 +164,10 @@ export default function FacultyAttendance() {
       if (downloadFilters.date_from) url += `date_from=${downloadFilters.date_from}&`;
       if (downloadFilters.date_to) url += `date_to=${downloadFilters.date_to}&`;
 
-      const token = localStorage.getItem("access_token");
-      const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+   const token = localStorage.getItem("access_token");
+const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
 
       if (!response.ok) {
         const err = await response.json();
