@@ -15,29 +15,45 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://smart-academic-dashboard-hi7g.onrender.com']
 
 # ── Installed Apps ────────────────────────────────────────────
-INSTALLED_APPS = [
-    'jazzmin',                  # Must be FIRST
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
-    # Third party
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'corsheaders',
-
-    # Our apps
-    'users',
-    'academics',
-    'attendance',
-    'resources',
-    'exams',
-    'notifications',
-    'notices',
-]
+if DEBUG:
+    INSTALLED_APPS = [
+        'jazzmin',
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'rest_framework',
+        'rest_framework_simplejwt',
+        'corsheaders',
+        'users',
+        'academics',
+        'attendance',
+        'resources',
+        'exams',
+        'notifications',
+        'notices',
+    ]
+else:
+    INSTALLED_APPS = [
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'rest_framework',
+        'rest_framework_simplejwt',
+        'corsheaders',
+        'users',
+        'academics',
+        'attendance',
+        'resources',
+        'exams',
+        'notifications',
+        'notices',
+    ]
 
 # ── Middleware ────────────────────────────────────────────────
 MIDDLEWARE = [
@@ -137,11 +153,12 @@ TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
-# ── Static Files ──────────────────────────────────────────────
-STATIC_URL = 'static/'
+# Static files
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
+if not DEBUG:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 # ── Media Files ───────────────────────────────────────────────
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
