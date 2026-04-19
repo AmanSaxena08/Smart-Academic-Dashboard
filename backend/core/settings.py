@@ -12,6 +12,7 @@ SECRET_KEY = os.environ.get(
 )
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['https://smart-academic-dashboard-hi7g.onrender.com']
 
 # ── Installed Apps ────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -186,7 +187,7 @@ JAZZMIN_SETTINGS = {
     },
     "default_icon_parents": "fas fa-folder",
     "default_icon_children": "fas fa-circle",
-    "related_modal_active": True,
+    "related_modal_active": False,
     "use_google_fonts_cdn": True,
     "show_ui_builder": False,
     "language_chooser": False,
