@@ -1,4 +1,7 @@
 from rest_framework import status
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.views.decorators.http import require_http_methods
+from django.http import FileResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -222,17 +225,29 @@ def get_student_attendance_detail(request):
 
     return Response(data)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.views.decorators.http import require_http_methods
+
+@require_http_methods(["GET"])
 def download_attendance_excel(request):
+    # ✅ Manual JWT Authentication (replaces @api_view)
+    jwt_auth = JWTAuthentication()
+    try:
+        auth_result = jwt_auth.authenticate(request)
+        if auth_result is None:
+            return HttpResponse('Unauthorized', status=401)
+        request.user, _ = auth_result
+    except Exception:
+        return HttpResponse('Unauthorized', status=401)
+
     if request.user.role != 'faculty':
-        return Response({'error': 'Only faculty can download attendance reports'}, status=status.HTTP_403_FORBIDDEN)
+        return HttpResponse('Forbidden', status=403)
 
     # Filters
-    subject_id = request.query_params.get('subject_id')
-    section_id = request.query_params.get('section_id')
-    date_from = request.query_params.get('date_from')
-    date_to = request.query_params.get('date_to')
+    subject_id = request.GET.get('subject_id')
+    section_id = request.GET.get('section_id')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
 
     # Get sessions
     sessions = AttendanceSession.objects.filter(faculty=request.user)
@@ -247,14 +262,13 @@ def download_attendance_excel(request):
     sessions = sessions.order_by('date', 'start_time')
 
     if not sessions.exists():
-        return Response({'error': 'No attendance data found for selected filters'}, status=status.HTTP_404_NOT_FOUND)
+        return HttpResponse('No attendance data found', status=404)
 
     # Get all students from these sessions
     student_ids = AttendanceRecord.objects.filter(
         session__in=sessions
     ).values_list('student_id', flat=True).distinct()
 
-    from users.models import CustomUser
     students = CustomUser.objects.filter(id__in=student_ids).order_by('student_profile__enrollment_number')
 
     # Create workbook
@@ -301,7 +315,6 @@ def download_attendance_excel(request):
     title_cell.alignment = center
     ws.row_dimensions[1].height = 35
 
-    # ── Sub info Row ─────────────────────────────────────────
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=total_cols)
     info_text = f"Faculty: {request.user.get_full_name()} | Generated: {datetime.now().strftime('%d %b %Y %I:%M %p')} | Total Sessions: {sessions.count()}"
     info_cell = ws.cell(row=2, column=1, value=info_text)
@@ -309,11 +322,8 @@ def download_attendance_excel(request):
     info_cell.font = white_normal
     info_cell.alignment = center
     ws.row_dimensions[2].height = 22
-
-    # ── Empty row ────────────────────────────────────────────
     ws.row_dimensions[3].height = 8
 
-    # ── Column Headers ────────────────────────────────────────
     header_row = 4
     fixed_headers = ["#", "Enrollment No.", "Student Name", "Branch", "Semester", "Section"]
     for col, h in enumerate(fixed_headers, start=1):
@@ -323,7 +333,6 @@ def download_attendance_excel(request):
         cell.alignment = center
         cell.border = thin_border
 
-    # Session date headers
     session_list = list(sessions)
     for i, session in enumerate(session_list):
         col = 7 + i
@@ -336,7 +345,6 @@ def download_attendance_excel(request):
         cell.border = thin_border
         ws.column_dimensions[get_column_letter(col)].width = 10
 
-    # Summary headers
     summary_start = 7 + len(session_list)
     for i, h in enumerate(["Total Present", "Total Absent", "Attendance %"]):
         col = summary_start + i
@@ -348,8 +356,6 @@ def download_attendance_excel(request):
         ws.column_dimensions[get_column_letter(col)].width = 14
 
     ws.row_dimensions[header_row].height = 45
-
-    # ── Fixed column widths ───────────────────────────────────
     ws.column_dimensions['A'].width = 5
     ws.column_dimensions['B'].width = 18
     ws.column_dimensions['C'].width = 22
@@ -357,7 +363,6 @@ def download_attendance_excel(request):
     ws.column_dimensions['E'].width = 10
     ws.column_dimensions['F'].width = 10
 
-    # ── Student Rows ──────────────────────────────────────────
     for idx, student in enumerate(students):
         row = header_row + 1 + idx
         row_fill = alt_row_fill if idx % 2 == 0 else PatternFill(fill_type=None)
@@ -374,7 +379,6 @@ def download_attendance_excel(request):
             semester = "N/A"
             section = "N/A"
 
-        # Fixed columns
         fixed_values = [idx + 1, enrollment, student.get_full_name(), branch, semester, section]
         for col, val in enumerate(fixed_values, start=1):
             cell = ws.cell(row=row, column=col, value=val)
@@ -383,7 +387,6 @@ def download_attendance_excel(request):
             cell.alignment = center if col != 3 else left
             cell.border = thin_border
 
-        # Attendance per session
         total_present = 0
         total_absent = 0
         for i, session in enumerate(session_list):
@@ -407,7 +410,6 @@ def download_attendance_excel(request):
             cell.alignment = center
             cell.border = thin_border
 
-        # Summary columns
         total_classes = total_present + total_absent
         percentage = round((total_present / total_classes * 100), 1) if total_classes > 0 else 0
 
@@ -432,10 +434,8 @@ def download_attendance_excel(request):
             pct_cell.font = absent_font
         pct_cell.alignment = center
         pct_cell.border = thin_border
-
         ws.row_dimensions[row].height = 20
 
-    # ── Legend Row ────────────────────────────────────────────
     legend_row = header_row + len(list(students)) + 2
     ws.merge_cells(start_row=legend_row, start_column=1, end_row=legend_row, end_column=total_cols)
     legend_cell = ws.cell(row=legend_row, column=1, value="LEGEND:   P = Present   |   A = Absent   |   — = No Record   |   Green % = Above 75% (Safe)   |   Red % = Below 75% (At Risk)")
@@ -444,24 +444,22 @@ def download_attendance_excel(request):
     legend_cell.alignment = center
     ws.row_dimensions[legend_row].height = 22
 
-    # Freeze top rows
     ws.freeze_panes = "G5"
 
-    # ── Return file ────────────────────────────────────────────
+    # ── Return file ✅ ─────────────────────────────────────
     filename = f"Attendance_{subject_name.replace(' ', '_')}_{section_name}_{datetime.now().strftime('%d%b%Y')}.xlsx"
-
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
 
-    response = HttpResponse(
-    buffer.read(),
-    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-     )
-    
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    from django.http import FileResponse
+    response = FileResponse(
+        buffer,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-    buffer.close()
     return response
 
 @api_view(['GET'])
