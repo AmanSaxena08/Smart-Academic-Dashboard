@@ -8,6 +8,7 @@ from .serializers import AttendanceSessionSerializer, AttendanceRecordSerializer
 from academics.models import Subject, Section
 from users.models import CustomUser
 import openpyxl
+import io
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
@@ -448,12 +449,19 @@ def download_attendance_excel(request):
 
     # ── Return file ────────────────────────────────────────────
     filename = f"Attendance_{subject_name.replace(' ', '_')}_{section_name}_{datetime.now().strftime('%d%b%Y')}.xlsx"
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
     response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    buffer.read(),
+    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+     )
+    
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-    wb.save(response)
+    buffer.close()
     return response
 
 @api_view(['GET'])
