@@ -209,7 +209,11 @@ export default function FacultyMarks() {
     if (filterType) url += `exam_type=${filterType}&`;
 
     const token = localStorage.getItem("access_token");
-    const response = await fetch(`http://127.0.0.1:8000/api${url}`, {
+    const baseURL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const fullURL = `${baseURL}${url}`;
+
+    const response = await fetch(fullURL, {
+      method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -220,11 +224,16 @@ export default function FacultyMarks() {
     }
 
     const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(
+      new Blob([blob], { type: "application/pdf" })
+    );
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
+    link.href = downloadUrl;
     link.download = `Marks_Report_${new Date().toLocaleDateString("en-IN").replace(/\//g, "-")}.pdf`;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
   } catch (err) {
     setPdfError("Download failed. Please try again.");
   } finally {

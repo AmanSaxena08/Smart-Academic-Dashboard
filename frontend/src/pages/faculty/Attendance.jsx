@@ -153,14 +153,16 @@ export default function FacultyAttendance() {
     }
   };
 
-const handleDownloadPDF = async (e) => {
+const handleDownloadExcel = async (e) => {
   e.preventDefault();
-  setPdfError("");
-  setPdfDownloading(true);
+  setDownloadError("");
+  setDownloading(true);
   try {
-    let url = "/exams/download-pdf/?";
-    if (filterSubject) url += `subject_id=${filterSubject}&`;
-    if (filterType) url += `exam_type=${filterType}&`;
+    let url = "/attendance/download-excel/?";
+    if (downloadFilters.subject_id) url += `subject_id=${downloadFilters.subject_id}&`;
+    if (downloadFilters.section_id) url += `section_id=${downloadFilters.section_id}&`;
+    if (downloadFilters.date_from) url += `date_from=${downloadFilters.date_from}&`;
+    if (downloadFilters.date_to) url += `date_to=${downloadFilters.date_to}&`;
 
     const token = localStorage.getItem("access_token");
     const baseURL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -168,32 +170,32 @@ const handleDownloadPDF = async (e) => {
 
     const response = await fetch(fullURL, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const err = await response.json();
-      setPdfError(err.error || "No data found");
+      setDownloadError(err.error || "No data found for selected filters");
       return;
     }
 
     const blob = await response.blob();
     const downloadUrl = URL.createObjectURL(
-      new Blob([blob], { type: "application/pdf" })
+      new Blob([blob], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
     );
     const link = document.createElement("a");
     link.href = downloadUrl;
-    link.download = `Marks_Report_${new Date().toLocaleDateString("en-IN").replace(/\//g, "-")}.pdf`;
+    link.download = `Attendance_Report_${new Date().toLocaleDateString("en-IN").replace(/\//g, "-")}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(downloadUrl);
   } catch (err) {
-    setPdfError("Download failed. Please try again.");
+    setDownloadError("Download failed. Please try again.");
   } finally {
-    setPdfDownloading(false);
+    setDownloading(false);
   }
 };
 
