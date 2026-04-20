@@ -153,49 +153,49 @@ export default function FacultyAttendance() {
     }
   };
 
-const handleDownloadExcel = async (e) => {
-    e.preventDefault();
-    setDownloadError("");
-    setDownloading(true);
-    try {
-      // ✅ Build full URL with backend base URL
-      let params = "";
-      if (downloadFilters.subject_id) params += `subject_id=${downloadFilters.subject_id}&`;
-      if (downloadFilters.section_id) params += `section_id=${downloadFilters.section_id}&`;
-      if (downloadFilters.date_from) params += `date_from=${downloadFilters.date_from}&`;
-      if (downloadFilters.date_to) params += `date_to=${downloadFilters.date_to}&`;
+const handleDownloadPDF = async (e) => {
+  e.preventDefault();
+  setPdfError("");
+  setPdfDownloading(true);
+  try {
+    let url = "/exams/download-pdf/?";
+    if (filterSubject) url += `subject_id=${filterSubject}&`;
+    if (filterType) url += `exam_type=${filterType}&`;
 
-      // ✅ Use full backend URL explicitly
-      const fullUrl = `${import.meta.env.VITE_API_BASE_URL}/attendance/download-excel/?${params}`;
+    const token = localStorage.getItem("access_token");
+    const baseURL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const fullURL = `${baseURL}${url}`;
 
-      const token = localStorage.getItem("access_token");
-      const response = await fetch(fullUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    const response = await fetch(fullURL, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        const err = await response.json();
-        setDownloadError(err.error || "No data found for selected filters");
-        return;
-      }
-
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      const disposition = response.headers.get("Content-Disposition");
-      const filename = disposition
-        ? disposition.split('filename=')[1].replace(/"/g, '')
-        : "attendance.xlsx";
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(link.href);
-
-    } catch (err) {
-      setDownloadError("Download failed. Please try again.");
-    } finally {
-      setDownloading(false);
+    if (!response.ok) {
+      const err = await response.json();
+      setPdfError(err.error || "No data found");
+      return;
     }
-  };
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(
+      new Blob([blob], { type: "application/pdf" })
+    );
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `Marks_Report_${new Date().toLocaleDateString("en-IN").replace(/\//g, "-")}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  } catch (err) {
+    setPdfError("Download failed. Please try again.");
+  } finally {
+    setPdfDownloading(false);
+  }
+};
 
   const presentCount = Object.values(attendance).filter((s) => s === "present").length;
   const absentCount = Object.values(attendance).filter((s) => s === "absent").length;

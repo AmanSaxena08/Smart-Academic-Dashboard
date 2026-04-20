@@ -16,6 +16,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from datetime import datetime
+import io
 # ─── FACULTY VIEWS ────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
@@ -262,14 +263,15 @@ def download_marks_pdf(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
 
+    buffer = io.BytesIO()
     doc = SimpleDocTemplate(
-        response,
-        pagesize=landscape(A4),
-        rightMargin=1.5*cm,
-        leftMargin=1.5*cm,
-        topMargin=1.5*cm,
-        bottomMargin=1.5*cm
-    )
+    buffer,
+    pagesize=landscape(A4),
+    rightMargin=1.5*cm,
+    leftMargin=1.5*cm,
+    topMargin=1.5*cm,
+    bottomMargin=1.5*cm
+)
 
     styles = getSampleStyleSheet()
     elements = []
@@ -535,4 +537,13 @@ def download_marks_pdf(request):
     elements.append(footer_table)
 
     doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.read(),
+        content_type='application/pdf'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+    response['Access-Control-Allow-Origin'] = '*'
     return response

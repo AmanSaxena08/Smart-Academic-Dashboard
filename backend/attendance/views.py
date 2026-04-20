@@ -446,20 +446,19 @@ def download_attendance_excel(request):
 
     ws.freeze_panes = "G5"
 
-    # ── Return file ✅ ─────────────────────────────────────
+    # ── Return file ─────────────────────────────────────────
     filename = f"Attendance_{subject_name.replace(' ', '_')}_{section_name}_{datetime.now().strftime('%d%b%Y')}.xlsx"
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
 
-    from django.http import FileResponse
-    response = FileResponse(
-        buffer,
-        as_attachment=True,
-        filename=filename,
+    response = HttpResponse(
+        buffer.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+    response['Access-Control-Allow-Origin'] = '*'
     return response
 
 @api_view(['GET'])
