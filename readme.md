@@ -1,485 +1,465 @@
-🎓 Smart Academic Dashboard
-A full-stack web application that connects students, faculty, and HOD on a single unified portal for managing attendance, study resources, exam marks, timetables, notices, and more — built as a college major project.
-
-📌 Table of Contents
-
-Project Overview
-Tech Stack
-Project Structure
-User Roles
-Features
-Database Models
-API Endpoints
-Installation & Setup
-Configuration
-Testing Guide
-Known Limitations
-Future Enhancements
-
-
-📖 Project Overview
-Smart Academic Dashboard replaces scattered college systems with one clean portal. Students can view their attendance, download study materials, check exam results, and track their timetable. Faculty can mark attendance, upload resources, publish exam marks, and monitor student performance. HODs can oversee their entire department — students, faculty, attendance, and exam results — and send notices to faculty members.
-Key highlights:
-
-Single login page with automatic role-based redirection
-Students self-register with password strength validation
-Faculty and HOD accounts created by Super Admin
-Real-time notifications when resources are uploaded or marks are published
-HOD notice board — send notices to all or specific faculty
-Downloadable attendance reports in Excel and marks reports in PDF
-Low attendance warning system — alerts students below 75%
-Fully responsive design — works on desktop, tablet, and mobile
-
-
-🛠 Tech Stack
-Backend
-TechnologyVersionPurposePython3.xProgramming languageDjango5.xWeb frameworkDjango REST Framework3.15.2REST API layerdjangorestframework-simplejwt5.3.1JWT Authenticationdjango-cors-headers4.6.0Cross-origin resource sharingPillow11.xImage/file handlingopenpyxl3.1.5Excel report generationreportlab4.2.5PDF report generationdjango-jazzmin2.6.0Admin panel UI themeSQLite—Database (development)
-Frontend
-TechnologyVersionPurposeReact18.xUI frameworkVite6.xBuild toolTailwind CSS4.xStylingReact Router DOM6.xClient-side routingAxios1.xHTTP clientRecharts2.xCharts and graphsLucide React0.383.0Icon library
-
-📁 Project Structure
-college/
-│
-├── backend/
-│   ├── core/                  ← Django project (settings, urls, wsgi)
-│   ├── users/                 ← CustomUser, StudentProfile, FacultyProfile, HOD views
-│   ├── academics/             ← Department, Subject, Section, Timetable
-│   ├── attendance/            ← AttendanceSession, AttendanceRecord, Excel export
-│   ├── resources/             ← Resource, ResourceView
-│   ├── exams/                 ← Exam, ExamResult, PDF export
-│   ├── notifications/         ← Notification (bell system)
-│   ├── notices/               ← Notice, NoticeRead (HOD notice board)
-│   ├── media/                 ← Uploaded files
-│   ├── manage.py
-│   └── requirements.txt
-│
-└── frontend/
-    └── src/
-        ├── api/
-        │   └── axios.js              ← Axios with JWT interceptors + auto refresh
-        ├── context/
-        │   └── AuthContext.jsx       ← Global auth state
-        ├── routes/
-        │   └── ProtectedRoute.jsx    ← Role-based route protection
-        ├── components/
-        │   └── shared/
-        │       ├── StudentLayout.jsx     ← Indigo theme sidebar + navbar
-        │       ├── FacultyLayout.jsx     ← Emerald theme sidebar + navbar
-        │       ├── HODLayout.jsx         ← Amber theme sidebar + navbar
-        │       └── NotificationBell.jsx  ← Bell with dropdown
-        └── pages/
-            ├── auth/
-            │   ├── Login.jsx         ← Single login with role redirect
-            │   └── Register.jsx      ← 2-step registration + password strength
-            ├── student/
-            │   ├── Home.jsx
-            │   ├── Attendance.jsx
-            │   ├── Resources.jsx
-            │   ├── Marks.jsx
-            │   ├── Timetable.jsx
-            │   └── Profile.jsx
-            ├── faculty/
-            │   ├── Home.jsx
-            │   ├── Attendance.jsx
-            │   ├── Resources.jsx
-            │   ├── Marks.jsx
-            │   ├── Timetable.jsx
-            │   ├── Students.jsx
-            │   ├── Notices.jsx
-            │   └── Profile.jsx
-            └── hod/
-                ├── Home.jsx
-                ├── Students.jsx
-                ├── Faculty.jsx
-                ├── Attendance.jsx
-                ├── Exams.jsx
-                ├── Notices.jsx
-                └── Profile.jsx
-
-👥 User Roles
-RoleTheme ColorAccessAccount CreationSuper Admin—Full Django Admin panelpython manage.py createsuperuserStudentIndigoStudent DashboardSelf-registration at /registerFacultyEmeraldFaculty DashboardCreated by Super AdminHODAmberHOD DashboardFaculty with is_hod=True in FacultyProfile
-HOD Year Group System
-HODs are assigned year groups via boolean fields in FacultyProfile:
+# 🎓 Smart Academic Dashboard
 
-hod_year_1 → Manages Semester 1 & 2 students
-hod_year_2 → Manages Semester 3 & 4 students
-hod_year_3 → Manages Semester 5 & 6 students
-hod_year_4 → Manages Semester 7 & 8 students
+A full-stack web application that connects **students, faculty, and HODs** on a single portal for managing attendance, study resources, exam marks, timetables, and notices.
 
-A HOD can be assigned multiple year groups simultaneously.
-Login Redirect Logic
-javascriptif (role === "student") → /student/home
-if (role === "faculty" && is_hod) → /hod/home
-if (role === "faculty" && !is_hod) → /faculty/home
+[![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-✨ Features
-🔐 Authentication & Security
+**🔗 [Live Demo](https://smart-academic-frontend.onrender.com)** · [Report a bug](https://github.com/AmanSaxena08/Smart-Academic-Dashboard/issues)
 
-Single login page for all users
-JWT authentication — 8 hour access token, 7 day refresh token
-Auto token refresh on expiry — seamless login experience
-Role-based protected routes
-Student self-registration with 2-step form
-Password strength validation:
+> ⏳ **Note:** the demo runs on Render's free tier, which sleeps after inactivity.
+> The first request can take **40–60 seconds** to wake the server. It is not broken — give it a moment.
 
-Minimum 8 characters
-At least 1 uppercase letter
-At least 1 lowercase letter
-At least 1 number
-At least 1 special character
-Live strength indicator (Very Weak → Very Strong) with 5 colored bars
-Real-time checklist showing which requirements are met
-Confirm password field turns green when passwords match
+---
 
+## 📸 Screenshots
 
+| Student Dashboard | Faculty Attendance |
+|:---:|:---:|
+| ![Student dashboard](docs/screenshots/student-home.png) | ![Faculty attendance](docs/screenshots/faculty-attendance.png) |
 
+| HOD Overview | Reports (Excel / PDF) |
+|:---:|:---:|
+| ![HOD overview](docs/screenshots/hod-home.png) | ![Reports](docs/screenshots/reports.png) |
 
-🧑‍🎓 Student Dashboard
-Home:
+---
 
-Summary cards: overall attendance %, resources available, exam results count
-Pie chart: overall present vs absent
-Bar chart: subject-wise attendance
-Low attendance alert: red banner listing subjects below 75%
-Recent resources and recent exam results sections
+## 🔑 Demo Credentials
 
-Attendance:
+Try the live demo with any of these accounts:
 
-Subject-wise summary cards with color-coded progress bars
-Bar chart with dual color coding (green ≥75%, red <75%)
-Detailed history table: date, subject, topic, time, status
-Filter by subject and date range
-Recovery calculator: "Attend next X consecutive classes to reach 75%"
+| Role | Username | Password |
+|---|---|---|
+| **Student** | `s6a01` | `Student@1234` |
+| **Faculty** | `prof_sharma` | `Faculty@1234` |
+| **HOD** | `hod_cs` | `HOD@1234` |
 
-Resources:
+Other seeded accounts: students follow the pattern `s{semester}{section}{number}` (e.g. `s6b05`), and faculty include `prof_gupta`, `prof_verma`, `prof_singh`.
 
-Files grouped by subject automatically
-Resource types: Notes, Assignment, Reference, Previous Year Questions, Other
-Stats bar showing count per type
-Filter by subject and type, search by title
-Download/View button — marks resource as viewed
+---
 
-Exam Marks:
+## 📖 Overview
 
-Summary cards: total exams, appeared, passed, average %
-Performance bar chart with pass/fail color coding
-Results grouped by subject with filter by subject and exam type
+Smart Academic Dashboard replaces scattered college systems with one portal. A single login page routes each user to the right dashboard based on their role.
 
-Timetable:
+- **Students** view attendance, download study material, check results, and track their timetable
+- **Faculty** mark attendance, upload resources, publish marks, and export reports
+- **HODs** oversee the department — students, faculty, attendance, results — and send notices
 
-Week view showing all 6 days with color-coded cards per day
-Today view showing only today's classes
-Today's day highlighted with colored border and pulsing dot
+**Highlights**
 
-Profile:
+- Single login with automatic role-based redirection
+- Student self-registration with live password-strength validation
+- Real-time notifications when resources or marks are published
+- HOD notice board — broadcast to all faculty or specific members
+- Downloadable **Excel** attendance reports and **PDF** marks reports
+- Low-attendance warnings for students below 75%, with a recovery calculator
+- Fully responsive — desktop, tablet, and mobile
 
-Academic info: enrollment number, branch, semester, section, DOB
-Edit personal info: name, email, phone
-Change password with validation
+---
 
+## 🛠 Tech Stack
 
-👨‍🏫 Faculty Dashboard
-Home:
+### Backend
 
-Summary cards: lectures conducted, resources shared, exams created, subjects
-Bar chart: lectures per subject
-Recent sessions and recent resources
+| Technology | Version | Purpose |
+|---|---|---|
+| Python | 3.12+ | Language |
+| Django | 5.2 | Web framework |
+| Django REST Framework | 3.15.2 | REST API layer |
+| simplejwt | 5.3.1 | JWT authentication |
+| django-cors-headers | 4.6.0 | Cross-origin requests |
+| Pillow | 11.2+ | Image / file handling |
+| openpyxl | 3.1.5 | Excel report generation |
+| reportlab | 4.2.5 | PDF report generation |
+| django-jazzmin | 2.6.0 | Admin panel theme |
+| PostgreSQL / SQLite | — | Database (prod / dev) |
 
-Attendance:
+### Frontend
 
-Mark Attendance tab: select subject/section/date/time, student list loads automatically, click to toggle present/absent, Mark All buttons, live present/absent counter
-Session History tab: table of all past sessions
-Download Report tab: Excel export with filters (subject, section, date range) — styled with colors, P/A columns, percentage color coding, frozen headers, legend
+| Technology | Version | Purpose |
+|---|---|---|
+| React | 19 | UI framework |
+| Vite | 7 | Build tool |
+| Tailwind CSS | 4 | Styling |
+| React Router | 7 | Client-side routing |
+| Axios | 1.x | HTTP client + JWT interceptors |
+| Recharts | 3.x | Charts and graphs |
+| Lucide React | 0.577 | Icon library |
 
-Resources:
+---
 
-Upload tab: title, description, subject, type, file upload
-Manage tab: filter, view, edit inline, delete with confirmation
+## 🚀 Quick Start
 
-Exam Marks:
+### Prerequisites
 
-Create Exam tab: title, type, subject, section, date, max marks, passing marks
-Enter/View Results tab: per-student marks entry with absent checkbox and remarks
-PDF download: landscape A4, styled headers, stats row, color-coded results table
+- Python 3.12+
+- Node.js 18+
+- npm 9+
 
-Timetable:
+### Backend
 
-Week view + today view with subject color legend
-Summary banner: today's classes, total weekly classes, subjects count
-
-Students:
-
-Select section to view all students
-Overall attendance % with progress bar and at-risk badges
-Click to expand subject-wise attendance breakdown per student
-
-Notice Board:
-
-View notices from HOD
-Unread indicator (pulsing amber dot)
-Auto-marks as read when expanded
-Filter: All / Unread / Read
-
-Profile:
-
-Faculty info: employee ID, department, designation, joining date
-Edit personal info and change password
-
-
-🏫 HOD Dashboard
-Home:
-
-Welcome banner with assigned semesters shown as badges
-Summary cards: total students, faculty, sections, subjects, sessions, exams, at-risk students
-Pie chart: safe vs at-risk students
-Quick stats: avg sessions per subject, students per section, subjects per faculty
-
-Students:
-
-All students in HOD's year groups
-Filter by semester, section, search by name/enrollment
-Summary cards: total, safe, at-risk, average attendance
-Table with attendance %, progress bar, at-risk badge
-
-Faculty:
-
-All faculty teaching in HOD's year groups
-Summary: total faculty, subjects covered, sessions taken
-Click to expand subjects each faculty teaches
-
-Attendance:
-
-Section-wise view with expand to see subject-wise average attendance
-Filter by semester and subject
-Color-coded progress bars (green ≥75%, yellow 60-75%, red <75%)
-
-Exam Results:
-
-All exams across HOD's year groups
-Filter by semester and exam type
-Table: exam name, type, subject, section, faculty, date, max marks, appeared, passed, average, pass %
-Color-coded pass percentage
-
-Notice Board:
-
-Create Notice tab: title, content, send to All Faculty or Specific Faculty
-Specific faculty selection with checkbox list
-Sent Notices tab: view, expand, delete sent notices
-Auto-creates notification in faculty bell when notice is sent
-
-Profile:
-
-HOD info: employee ID, department, designation, joining date
-Assigned year groups displayed as badges
-Edit personal info and change password
-
-
-🔔 Notification Bell
-
-Available in all 3 dashboards (Student, Faculty, HOD)
-Red badge showing unread count (9+ for large counts)
-Dropdown with last 20 notifications
-Icons by type: 📚 resource, 📊 marks, 🔔 general
-Time ago display (just now, 2h ago, 3d ago)
-Click to mark as read, Mark All Read button
-Auto-polls every 30 seconds
-Auto-created when:
-
-Faculty uploads a resource → enrolled students notified
-Faculty enters marks → specific student notified with marks
-HOD sends a notice → all recipient faculty notified
-
-
-
-
-📊 Charts & Visualizations
-
-Student Home: Pie chart (overall attendance) + Bar chart (subject-wise)
-Student Attendance: Bar chart (dual color — safe vs at-risk)
-Student Marks: Bar chart (exam performance — pass/fail coloring)
-Faculty Home: Bar chart (lectures per subject)
-HOD Home: Pie chart (safe vs at-risk students)
-
-
-📱 Responsive Design
-
-Sidebar becomes slide-in drawer on mobile with dark overlay
-Hamburger menu button on mobile only
-Grids collapse: 4 columns → 2 columns → 1 column
-Tables horizontally scrollable on small screens
-Compact navbar on mobile
-
-
-🗄 Database Models
-users app
-
-CustomUser (extends AbstractUser) — role (student/faculty/admin), phone, profile_pic
-StudentProfile — enrollment_number, branch, semester, section, date_of_birth, address
-FacultyProfile — employee_id, department, designation, joining_date, is_hod, hod_year_1, hod_year_2, hod_year_3, hod_year_4
-
-academics app
-
-Department — name, code
-Subject — name, code, semester, department (FK), faculty (FK), credits
-Section — name, semester, department (FK), students (M2M)
-Timetable — section (FK), subject (FK), day, start_time, end_time
-
-attendance app
-
-AttendanceSession — faculty, subject, section, date, start_time, topic_covered (unique: subject+section+date+start_time)
-AttendanceRecord — session, student, status (present/absent) (unique: session+student)
-
-resources app
-
-Resource — title, description, resource_type, file, subject, section, uploaded_by, uploaded_at, is_active
-ResourceView — resource, student, viewed_at (unique: resource+student)
-
-exams app
-
-Exam — title, exam_type, subject, section, conducted_by, date, max_marks, passing_marks
-ExamResult — exam, student, marks_obtained, is_absent, remarks, entered_by (unique: exam+student)
-
-notifications app
-
-Notification — recipient, title, message, notification_type, is_read, created_at
-
-notices app
-
-Notice — title, content, sent_by, recipient_type (all/specific), specific_recipients (M2M), is_active, created_at
-NoticeRead — notice, faculty, read_at (unique: notice+faculty)
-
-
-🔌 API Endpoints
-Users — /api/users/
-MethodEndpointDescriptionAuthPOST/register/Student registrationNoPOST/login/Login — returns JWT + user dataNoPOST/token/refresh/Refresh access tokenNoGET/profile/Get full profileYesPUT/profile/update/Update personal infoYesPOST/change-password/Change passwordYesGET/hod/overview/HOD department overview statsHODGET/hod/students/All students in HOD's year groupsHODGET/hod/faculty/All faculty in HOD's year groupsHODGET/hod/attendance/Section-wise attendance overviewHODGET/hod/exams/All exams in HOD's year groupsHOD
-Academics — /api/academics/
-MethodEndpointDescriptionAuthGET/departments/List departmentsYesGET/subjects/List subjects by roleYesGET/sections/List all sectionsYesGET/student-timetable/Student's timetableStudentGET/faculty-timetable/Faculty's timetableFaculty
-Attendance — /api/attendance/
-MethodEndpointDescriptionAuthPOST/create-session/Mark attendanceFacultyGET/section-students/Students in a sectionFacultyGET/PUT/session/<id>/View/update sessionFacultyGET/faculty-sessions/Faculty's sessionsFacultyGET/my-summary/Student attendance summaryStudentGET/my-detail/Student attendance historyStudentGET/students-summary/All students' attendanceFacultyGET/download-excel/Download Excel reportFaculty
-Resources — /api/resources/
-MethodEndpointDescriptionAuthPOST/upload/Upload resourceFacultyGET/faculty/Faculty's resourcesFacultyGET/PUT/DELETE/<id>/View/edit/delete resourceFacultyGET/student/Student's resourcesStudentPOST/<id>/viewed/Mark as viewedStudent
-Exams — /api/exams/
-MethodEndpointDescriptionAuthPOST/create/Create examFacultyGET/PUT/DELETE/<id>/View/edit/delete examFacultyPOST/<id>/results/Enter marksFacultyGET/faculty/Faculty's examsFacultyGET/my-results/Student's resultsStudentGET/my-summary/Student's exam summaryStudentGET/download-pdf/Download PDF reportFaculty
-Notifications — /api/notifications/
-MethodEndpointDescriptionAuthGET/Get notifications + unread countYesPUT/<id>/read/Mark as readYesPUT/mark-all-read/Mark all as readYes
-Notices — /api/notices/
-MethodEndpointDescriptionAuthPOST/create/Create noticeHODGET/hod/HOD's sent noticesHODDELETE/<id>/delete/Delete noticeHODGET/faculty/Faculty's received noticesFacultyPUT/<id>/read/Mark notice as readFaculty
-
-🚀 Installation & Setup
-Prerequisites
-
-Python 3.10–3.12 recommended
-Node.js 18+
-npm 9+
-
-Backend Setup
-bashcd backend
+```bash
+cd backend
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
-
-# Mac/Linux
+# macOS / Linux
 source venv/bin/activate
 
 pip install -r requirements.txt
-python manage.py makemigrations
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py seed_data        # optional: 120 demo students, faculty, subjects
+python manage.py createsuperuser  # for the /admin/ panel
 python manage.py runserver
-Frontend Setup
-bashcd frontend
+```
+
+Backend runs at **http://127.0.0.1:8000/**
+
+### Frontend
+
+```bash
+cd frontend
 npm install
 npm run dev
-Backend runs at http://127.0.0.1:8000/
-Frontend runs at http://localhost:5173/
+```
 
-⚙️ Configuration
-Key settings.py settings:
-pythonAUTH_USER_MODEL = 'users.CustomUser'
+Frontend runs at **http://localhost:5173/**
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+### Configuration
 
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-}
+The frontend defaults to `http://127.0.0.1:8000/api`. To point it elsewhere (for example if port 8000 is already taken), create `frontend/.env`:
 
-CORS_ALLOW_ALL_ORIGINS = True  # Development only
-TIME_ZONE = 'Asia/Kolkata'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+```env
+VITE_API_URL=http://127.0.0.1:8001/api
+```
 
-# Jazzmin must be FIRST in INSTALLED_APPS
-INSTALLED_APPS = [
-    'jazzmin',
-    'django.contrib.admin',
-    ...
-]
-Key axios.js setting:
-javascriptbaseURL: 'http://127.0.0.1:8000/api'
+The backend reads these environment variables — all optional in development:
 
-🧪 Testing Guide
-Admin Setup
+| Variable | Default (dev) | Purpose |
+|---|---|---|
+| `SECRET_KEY` | insecure dev key | **Required when `DEBUG=False`** |
+| `DEBUG` | `True` | Set `False` in production |
+| `DATABASE_URL` | SQLite file | Postgres connection string |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1,.onrender.com` | Comma-separated hosts |
+| `CORS_ALLOWED_ORIGINS` | frontend Render URL | Comma-separated origins |
+| `DJANGO_SUPERUSER_PASSWORD` | *unset* | If set, `build.sh` creates an admin |
+| `SEED_DEMO_DATA` | `true` | Run `seed_data` during deploy |
 
-Go to http://127.0.0.1:8000/admin/
-Create Department: Computer Science (CS)
-Create Faculty user: role=faculty, create FacultyProfile with employee ID
-Create HOD: same as faculty but check is_hod=True and check year group boxes
-Create Subjects: DS601, CN602, OS603, WT604 — Sem 6, CS dept, faculty assigned
-Register Student: go to /register, fill Sem 6, CS, Section A
-Create Section: Name A, Sem 6, CS — add student to Students field
-Add Timetable entries for each subject on different days
+---
 
-Testing Password Restrictions
-Go to /register → Step 1 → type in password field:
+## 👥 User Roles
 
-abc → Very Weak, all red ✗
-Abc1@123 → Very Strong, all green ✓
-Mismatched confirm → red border with ✗
-Matched confirm → green border with ✓
+| Role | Theme | Access | Account Creation |
+|---|---|---|---|
+| Super Admin | — | Django admin panel | `python manage.py createsuperuser` |
+| Student | Indigo | Student dashboard | Self-registration at `/register` |
+| Faculty | Emerald | Faculty dashboard | Created by Super Admin |
+| HOD | Amber | HOD dashboard | Faculty with `is_hod=True` |
 
-Testing Faculty Flow
-Login as faculty → Mark attendance → Upload resources → Create exams → Enter marks → Download Excel/PDF
-Testing Student Flow
-Login as student → Check home charts and low attendance warning → View attendance with recovery calculator → Download resources → Check marks
-Testing HOD Flow
-Login as HOD → Check overview stats → View students list → View faculty → Check attendance overview → View exam results → Send notice to all faculty
-Testing Notices
-HOD sends notice → Login as faculty → Go to Notice Board → Notice appears with pulsing amber dot → Click to expand → Marks as read automatically → Bell notification also appears
+### HOD Year Groups
 
-🔒 Security Notes
+HODs are assigned year groups via boolean fields on `FacultyProfile`. A HOD can hold several at once.
 
-DEBUG = True — development only, set False in production
-CORS_ALLOW_ALL_ORIGINS = True — development only, restrict in production
-SECRET_KEY — change and store as environment variable in production
-JWT tokens in localStorage — suitable for college project demo
-File uploads stored locally — use cloud storage in production
+| Field | Manages |
+|---|---|
+| `hod_year_1` | Semesters 1 & 2 |
+| `hod_year_2` | Semesters 3 & 4 |
+| `hod_year_3` | Semesters 5 & 6 |
+| `hod_year_4` | Semesters 7 & 8 |
 
+### Login Redirect Logic
 
-🧩 Known Limitations
+```js
+if (role === "student")           // → /student/home
+if (role === "faculty" && is_hod) // → /hod/home
+if (role === "faculty" && !is_hod)// → /faculty/home
+```
 
-SQLite — not suitable for high-traffic production
-No email verification on registration
-No forgot password via email
-Notifications use polling (30 seconds) instead of WebSockets
-Pillow may have issues with Python 3.14 on Windows — use Python 3.11/3.12
+---
 
+## ✨ Features
 
-🚀 Future Enhancements
+### 🔐 Authentication
 
-Dark mode toggle
-Assignment submission system
-Email notifications for low attendance
-PostgreSQL for production
-WebSocket real-time notifications
-Docker containerization
-Mobile app with React Native
+- Single login page for all roles
+- JWT — 8-hour access token, 7-day refresh token, rotation enabled
+- Automatic token refresh via an Axios interceptor on `401`
+- Role-based protected routes
+- Two-step student registration with a live password-strength meter
 
-Built with ❤️ using Django + React | College Major Project 2025-2026
+Password rules: minimum 8 characters, at least one uppercase, one lowercase, one number, and one special character.
+
+### 🧑‍🎓 Student Dashboard
+
+| Page | What it does |
+|---|---|
+| **Home** | Summary cards, pie chart (present vs absent), bar chart (subject-wise), low-attendance alert, recent resources and results |
+| **Attendance** | Subject-wise cards with progress bars, dual-colour bar chart (green ≥75%, red <75%), history table, subject/date filters, **recovery calculator** |
+| **Resources** | Files grouped by subject, filter by type, search by title, download (marks as viewed) |
+| **Marks** | Summary cards, performance bar chart with pass/fail colouring, grouped by subject |
+| **Timetable** | Week view across 6 days, today view, today highlighted with a pulsing dot |
+| **Profile** | Academic info, edit personal details, change password |
+
+### 👨‍🏫 Faculty Dashboard
+
+| Page | What it does |
+|---|---|
+| **Home** | Lectures conducted, resources shared, exams created, bar chart of lectures per subject |
+| **Attendance** | Mark attendance (click to toggle, Mark All, live counters), session history, **Excel export** with filters |
+| **Resources** | Upload with title/description/type, manage with inline edit and delete |
+| **Marks** | Create exams, enter per-student marks with absent flag and remarks, **PDF export** |
+| **Timetable** | Week and today views with a subject colour legend |
+| **Students** | Per-section list with attendance %, at-risk badges, expandable subject breakdown |
+| **Notice Board** | Notices from HOD, unread indicator, auto-marks read on expand |
+| **Profile** | Faculty info, edit details, change password |
+
+### 🏫 HOD Dashboard
+
+| Page | What it does |
+|---|---|
+| **Home** | Department-wide stats, pie chart (safe vs at-risk), quick averages |
+| **Students** | All students in the HOD's year groups, filters, at-risk badges |
+| **Faculty** | All faculty with expandable subject lists |
+| **Attendance** | Section-wise view with colour-coded bars (green ≥75%, yellow 60–75%, red <75%) |
+| **Exams** | All exam results with appeared/passed counts and pass % |
+| **Notice Board** | Create notices for all or specific faculty, view and delete sent notices |
+| **Profile** | HOD info, year-group badges, edit details |
+
+### 🔔 Notifications
+
+Available in all three dashboards. Red badge with unread count, dropdown of the last 20, icons by type, relative timestamps, mark-one/mark-all read, polling every 30 seconds.
+
+Auto-created when:
+
+- Faculty uploads a resource → enrolled students notified
+- Faculty enters marks → that student notified
+- HOD sends a notice → recipient faculty notified
+
+---
+
+## 🗄 Database Models
+
+### `users`
+
+| Model | Key fields |
+|---|---|
+| `CustomUser` | extends `AbstractUser` — role, phone, profile_pic |
+| `StudentProfile` | enrollment_number, branch, semester, section, date_of_birth, address |
+| `FacultyProfile` | employee_id, department, designation, joining_date, is_hod, hod_year_1…4 |
+
+### `academics`
+
+| Model | Key fields |
+|---|---|
+| `Department` | name, code |
+| `Subject` | name, code, semester, department, faculty, credits |
+| `Section` | name, semester, department, students (M2M) |
+| `Timetable` | section, subject, day, start_time, end_time |
+
+### `attendance`
+
+| Model | Key fields |
+|---|---|
+| `AttendanceSession` | faculty, subject, section, date, start_time, topic_covered — unique on (subject, section, date, start_time) |
+| `AttendanceRecord` | session, student, status — unique on (session, student) |
+
+### `resources`
+
+| Model | Key fields |
+|---|---|
+| `Resource` | title, description, resource_type, file, subject, section, uploaded_by, is_active |
+| `ResourceView` | resource, student, viewed_at — unique on (resource, student) |
+
+### `exams`
+
+| Model | Key fields |
+|---|---|
+| `Exam` | title, exam_type, subject, section, conducted_by, date, max_marks, passing_marks |
+| `ExamResult` | exam, student, marks_obtained, is_absent, remarks — unique on (exam, student) |
+
+### `notifications` / `notices`
+
+| Model | Key fields |
+|---|---|
+| `Notification` | recipient, title, message, notification_type, is_read, created_at |
+| `Notice` | title, content, sent_by, recipient_type, specific_recipients (M2M), is_active |
+| `NoticeRead` | notice, faculty, read_at — unique on (notice, faculty) |
+
+---
+
+## 🔌 API Endpoints
+
+### Users — `/api/users/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/register/` | Student registration | No |
+| POST | `/login/` | Login — returns JWT + user data | No |
+| POST | `/token/refresh/` | Refresh access token | No |
+| GET | `/profile/` | Get full profile | Yes |
+| PUT | `/profile/update/` | Update personal info | Yes |
+| POST | `/change-password/` | Change password | Yes |
+| GET | `/hod/overview/` | Department overview stats | HOD |
+| GET | `/hod/students/` | Students in HOD's year groups | HOD |
+| GET | `/hod/faculty/` | Faculty in HOD's year groups | HOD |
+| GET | `/hod/attendance/` | Section-wise attendance overview | HOD |
+| GET | `/hod/exams/` | All exams in HOD's year groups | HOD |
+
+### Academics — `/api/academics/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/departments/` | List departments | Yes |
+| GET | `/subjects/` | List subjects by role | Yes |
+| GET | `/sections/` | List all sections | Yes |
+| GET | `/student-timetable/` | Student's timetable | Student |
+| GET | `/faculty-timetable/` | Faculty's timetable | Faculty |
+
+### Attendance — `/api/attendance/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/create-session/` | Mark attendance | Faculty |
+| GET | `/section-students/` | Students in a section | Faculty |
+| GET / PUT | `/session/<id>/` | View or update a session | Faculty |
+| GET | `/faculty-sessions/` | Faculty's sessions | Faculty |
+| GET | `/my-summary/` | Student attendance summary | Student |
+| GET | `/my-detail/` | Student attendance history | Student |
+| GET | `/students-summary/` | All students' attendance | Faculty |
+| GET | `/download-excel/` | Download Excel report | Faculty |
+
+### Resources — `/api/resources/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/upload/` | Upload a resource | Faculty |
+| GET | `/faculty/` | Faculty's resources | Faculty |
+| GET / PUT / DELETE | `/<id>/` | View, edit, or delete | Faculty |
+| GET | `/student/` | Student's resources | Student |
+| POST | `/<id>/viewed/` | Mark as viewed | Student |
+
+### Exams — `/api/exams/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/create/` | Create an exam | Faculty |
+| GET / PUT / DELETE | `/<id>/` | View, edit, or delete | Faculty |
+| POST | `/<id>/results/` | Enter marks | Faculty |
+| GET | `/faculty/` | Faculty's exams | Faculty |
+| GET | `/my-results/` | Student's results | Student |
+| GET | `/my-summary/` | Student's exam summary | Student |
+| GET | `/download-pdf/` | Download PDF report | Faculty |
+
+### Notifications — `/api/notifications/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/` | Notifications + unread count | Yes |
+| PUT | `/<id>/read/` | Mark as read | Yes |
+| PUT | `/mark-all-read/` | Mark all as read | Yes |
+
+### Notices — `/api/notices/`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/create/` | Create a notice | HOD |
+| GET | `/hod/` | HOD's sent notices | HOD |
+| DELETE | `/<id>/delete/` | Delete a notice | HOD |
+| GET | `/faculty/` | Faculty's received notices | Faculty |
+| PUT | `/<id>/read/` | Mark notice as read | Faculty |
+
+---
+
+## 📁 Project Structure
+
+```
+Smart-Academic-Dashboard/
+│
+├── backend/
+│   ├── core/              ← Django project (settings, urls, wsgi)
+│   ├── users/             ← CustomUser, profiles, HOD views
+│   ├── academics/         ← Department, Subject, Section, Timetable
+│   ├── attendance/        ← Sessions, records, Excel export
+│   ├── resources/         ← Resource uploads and views
+│   ├── exams/             ← Exams, results, PDF export
+│   ├── notifications/     ← Bell notifications
+│   ├── notices/           ← HOD notice board
+│   ├── build.sh           ← Render build script
+│   └── requirements.txt
+│
+├── frontend/
+│   └── src/
+│       ├── api/axios.js            ← JWT interceptors + auto refresh
+│       ├── context/AuthContext.jsx ← Global auth state
+│       ├── routes/                 ← Role-based route protection
+│       ├── components/shared/      ← Layouts + notification bell
+│       └── pages/                  ← auth / student / faculty / hod
+│
+├── docs/screenshots/
+├── render.yaml
+└── LICENSE
+```
+
+---
+
+## 🌐 Deployment
+
+Deployed on [Render](https://render.com) via `render.yaml` — a Python web service for the backend and a static site for the frontend.
+
+**Required environment variables in production:**
+
+```env
+SECRET_KEY=<generate a fresh one>
+DEBUG=False
+DATABASE_URL=<postgres connection string>
+ALLOWED_HOSTS=your-backend.onrender.com
+CORS_ALLOWED_ORIGINS=https://your-frontend.onrender.com
+```
+
+The frontend needs `VITE_API_URL` set to the backend's `/api` URL at build time.
+
+> The app **refuses to start** with `DEBUG=False` and no `SECRET_KEY`, by design — it should never fall back to a key committed to source control.
+
+---
+
+## 🔒 Security Notes
+
+- `SECRET_KEY` is read from the environment; there is no production fallback
+- `CORS_ALLOW_ALL_ORIGINS` is enabled only when `DEBUG=True`
+- `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` are environment-driven
+- `build.sh` creates a superuser only when `DJANGO_SUPERUSER_PASSWORD` is supplied
+- JWT tokens are stored in `localStorage` — acceptable for a demo, though `httpOnly` cookies are the stronger production choice
+- Uploaded files are stored on local disk — use object storage (S3 / Cloudinary) at scale
+
+---
+
+## 🧩 Known Limitations
+
+- Notifications poll every 30 seconds rather than using WebSockets
+- No email verification or password reset by email
+- Uploaded media is not persisted across Render free-tier restarts
+- `Pillow` and `psycopg2-binary` need recent versions on Python 3.13+; `psycopg2-binary` is skipped on Windows, since local development uses SQLite
+
+---
+
+## 🚀 Future Enhancements
+
+- WebSocket notifications via Django Channels
+- Assignment submission and grading
+- Email alerts for low attendance
+- Dark mode
+- Cloud storage for uploaded files
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).
+
+---
+
+Built by **[Aman Saxena](https://github.com/AmanSaxena08)** as a college major project.

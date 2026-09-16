@@ -2,20 +2,43 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
+
+
+def _csv_env(name, default):
+    """Read a comma-separated env var into a clean list."""
+    return [v.strip() for v in os.environ.get(name, default).split(',') if v.strip()]
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ── Security ──────────────────────────────────────────────────
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-59ws#e&)ys9t_@l(u1skz^sz!m*&)t&dm4j0w_58+xn+m=9gg6'
-)
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://smart-academic-dashboard-hi7g.onrender.com']
+
+# Never ship a real key in source. Production must supply one.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-local-dev-key-not-for-production'
+    else:
+        raise ImproperlyConfigured(
+            'SECRET_KEY must be set as an environment variable when DEBUG=False.'
+        )
+
+ALLOWED_HOSTS = _csv_env(
+    'ALLOWED_HOSTS',
+    'localhost,127.0.0.1,.onrender.com' if DEBUG else '.onrender.com'
+)
+
+CSRF_TRUSTED_ORIGINS = _csv_env(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://smart-academic-dashboard-hi7g.onrender.com,'
+    'https://smart-academic-frontend.onrender.com'
+)
 
 # ── Installed Apps ────────────────────────────────────────────
 INSTALLED_APPS = [
+    'jazzmin',  # must precede django.contrib.admin
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -116,7 +139,13 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────
-CORS_ALLOW_ALL_ORIGINS = True
+# Wide open locally for convenience; explicit allowlist in production.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = _csv_env(
+    'CORS_ALLOWED_ORIGINS',
+    'https://smart-academic-frontend.onrender.com'
+)
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -147,3 +176,46 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+# ── Jazzmin Admin Theme ─────────────────────────────────────────
+JAZZMIN_SETTINGS = {
+    'site_title': 'Smart Academic Admin',
+    'site_header': 'Smart Academic Dashboard',
+    'site_brand': 'Smart Academic',
+    'welcome_sign': 'Smart Academic Dashboard — Administration',
+    'copyright': 'Smart Academic Dashboard',
+    'search_model': ['users.CustomUser', 'academics.Subject'],
+    'show_ui_builder': False,
+    'changeform_format': 'horizontal_tabs',
+    'icons': {
+        'users.CustomUser': 'fas fa-user',
+        'users.StudentProfile': 'fas fa-user-graduate',
+        'users.FacultyProfile': 'fas fa-chalkboard-teacher',
+        'academics.Department': 'fas fa-building',
+        'academics.Subject': 'fas fa-book',
+        'academics.Section': 'fas fa-users',
+        'academics.Timetable': 'fas fa-calendar-alt',
+        'attendance.AttendanceSession': 'fas fa-clipboard-check',
+        'attendance.AttendanceRecord': 'fas fa-check-double',
+        'resources.Resource': 'fas fa-file-alt',
+        'exams.Exam': 'fas fa-file-signature',
+        'exams.ExamResult': 'fas fa-poll',
+        'notifications.Notification': 'fas fa-bell',
+        'notices.Notice': 'fas fa-bullhorn',
+    },
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'navbar': 'navbar-navy navbar-dark',
+    'sidebar': 'sidebar-dark-navy',
+    'accent': 'accent-navy',
+    'brand_colour': 'navbar-navy',
+    'theme': 'default',
+    'dark_mode_theme': None,
+    'sidebar_nav_flat_style': True,
+    'button_classes': {
+        'primary': 'btn-primary',
+        'success': 'btn-success',
+        'danger': 'btn-danger',
+    },
+}

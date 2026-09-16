@@ -3,6 +3,31 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import API from "../../api/axios";
 
+// One-click demo accounts so reviewers can explore without typing credentials.
+const DEMO_ACCOUNTS = [
+  {
+    role: "Student",
+    username: "s6a01",
+    password: "Student@1234",
+    blurb: "attendance, marks, timetable",
+    styles: "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+  },
+  {
+    role: "Faculty",
+    username: "prof_sharma",
+    password: "Faculty@1234",
+    blurb: "mark attendance, Excel/PDF reports",
+    styles: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+  },
+  {
+    role: "HOD",
+    username: "hod_cs",
+    password: "HOD@1234",
+    blurb: "department stats, notice board",
+    styles: "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+  },
+];
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -14,24 +39,28 @@ export default function Login() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
-  try {
-    const res = await API.post("/users/login/", formData);
-    login(res.data.user, res.data.access, res.data.refresh);
-    if (res.data.user.role === "student") navigate("/student/home");
-    else if (res.data.user.role === "faculty") {
-      if (res.data.user.is_hod) navigate("/hod/home");
-      else navigate("/faculty/home");
+  const signIn = async (credentials) => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await API.post("/users/login/", credentials);
+      login(res.data.user, res.data.access, res.data.refresh);
+      if (res.data.user.role === "student") navigate("/student/home");
+      else if (res.data.user.role === "faculty") {
+        if (res.data.user.is_hod) navigate("/hod/home");
+        else navigate("/faculty/home");
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Invalid credentials");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError(err.response?.data?.error || "Invalid credentials");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    signIn(formData);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -89,6 +118,38 @@ export default function Login() {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        {/* Demo accounts — zero-friction entry for reviewers */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-px bg-gray-200 flex-1" />
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+              Or explore a demo
+            </span>
+            <div className="h-px bg-gray-200 flex-1" />
+          </div>
+
+          <div className="space-y-2">
+            {DEMO_ACCOUNTS.map((acct) => (
+              <button
+                key={acct.role}
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  signIn({ username: acct.username, password: acct.password })
+                }
+                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 border rounded-lg text-left transition duration-200 disabled:opacity-50 ${acct.styles}`}
+              >
+                <span className="text-sm font-semibold">View as {acct.role}</span>
+                <span className="text-xs opacity-70 hidden sm:block">{acct.blurb}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[11px] text-gray-400 text-center mt-3">
+            Read-only demo data. No sign-up required.
+          </p>
+        </div>
 
         {/* Register Link */}
         <p className="text-center text-sm text-gray-500 mt-6">
