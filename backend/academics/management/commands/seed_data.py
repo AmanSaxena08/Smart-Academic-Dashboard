@@ -1,7 +1,16 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from academics.models import Department, Subject, Section, Timetable
 from users.models import StudentProfile, FacultyProfile
+from attendance.models import AttendanceSession, AttendanceRecord
+from exams.models import Exam, ExamResult
+from resources.models import Resource
+from notices.models import Notice
+from notifications.models import Notification
+from datetime import date, timedelta, time as dtime
+from decimal import Decimal
+import io as _io
 import random
 
 User = get_user_model()
@@ -250,6 +259,200 @@ class Command(BaseCommand):
                     defaults={'end_time': end}
                 )
         self.stdout.write('✅ Timetable created')
+
+        # ── Activity data ─────────────────────────────────────
+        # Attendance, exams, resources and notices. Without these every
+        # chart in the app renders empty, so a fresh deployment looks
+        # unfinished. Guarded on AttendanceSession so redeploys are cheap
+        # and this never double-seeds.
+        if AttendanceSession.objects.exists():
+            self.stdout.write('⏭  Activity data already present — skipping')
+        else:
+            rng = random.Random(20260916)  # deterministic between runs
+
+            all_subjects = list(Subject.objects.select_related('faculty'))
+            sections_by_sem = {}
+            for sec in Section.objects.all():
+                sections_by_sem.setdefault(sec.semester, []).append(sec)
+
+            # Give each student a baseline reliability. The tail below 0.75
+            # is what makes the low-attendance warnings and at-risk badges
+            # visible in the UI.
+            reliability = {}
+            for stu in User.objects.filter(role='student'):
+                roll = rng.random()
+                if roll < 0.18:
+                    reliability[stu.id] = rng.uniform(0.45, 0.72)   # at risk
+                elif roll < 0.35:
+                    reliability[stu.id] = rng.uniform(0.75, 0.85)   # borderline
+                else:
+                    reliability[stu.id] = rng.uniform(0.86, 0.99)   # healthy
+
+            # ── Attendance ────────────────────────────────────
+            today = date.today()
+            weekdays = []
+            probe = today - timedelta(days=1)
+            while len(weekdays) < 45:
+                if probe.weekday() < 5:          # Mon–Fri only
+                    weekdays.append(probe)
+                probe -= timedelta(days=1)
+            weekdays.reverse()
+
+            sessions, records = [], []
+            topics = ['Introduction', 'Core Concepts', 'Case Study', 'Problem Solving',
+                      'Lab Walkthrough', 'Revision', 'Advanced Topics', 'Group Discussion',
+                      'Applications', 'Doubt Session', 'Recap', 'Assessment Prep']
+
+            for idx, subj in enumerate(all_subjects):
+                for sec in sections_by_sem.get(subj.semester, []):
+                    students = list(sec.students.filter(role='student'))
+                    if not students:
+                        continue
+                    slots = rng.sample(weekdays, min(10, len(weekdays)))
+                    for n, day in enumerate(sorted(slots)):
+                        sessions.append(AttendanceSession(
+                            faculty=subj.faculty,
+                            subject=subj,
+                            section=sec,
+                            date=day,
+                            start_time=dtime(9 + (idx % 6), 0),
+                            topic_covered=f"{topics[n % len(topics)]} — {subj.name}",
+                        ))
+            AttendanceSession.objects.bulk_create(sessions, batch_size=500)
+
+            roster = {
+                sec.id: list(sec.students.filter(role='student'))
+                for sec in Section.objects.prefetch_related('students')
+            }
+            for sess in AttendanceSession.objects.all():
+                for stu in roster.get(sess.section_id, []):
+                    present = rng.random() < reliability.get(stu.id, 0.85)
+                    records.append(AttendanceRecord(
+                        session=sess, student=stu,
+                        status='present' if present else 'absent',
+                    ))
+            AttendanceRecord.objects.bulk_create(records, batch_size=1000)
+            self.stdout.write(
+                f'✅ {len(sessions)} attendance sessions, {len(records)} records')
+
+            # ── Exams and results ─────────────────────────────
+            exam_plan = [
+                ('Sessional 1', 'sessional1', Decimal('30'), Decimal('12'), 40),
+                ('Sessional 2', 'sessional2', Decimal('30'), Decimal('12'), 12),
+            ]
+            exams, results = [], []
+            for subj in all_subjects:
+                for sec in sections_by_sem.get(subj.semester, []):
+                    if not sec.students.exists():
+                        continue
+                    for title, etype, maxm, passm, days_ago in exam_plan:
+                        exams.append(Exam(
+                            title=f"{title} — {subj.name}",
+                            exam_type=etype,
+                            subject=subj,
+                            section=sec,
+                            conducted_by=subj.faculty,
+                            date=today - timedelta(days=days_ago),
+                            max_marks=maxm,
+                            passing_marks=passm,
+                        ))
+            Exam.objects.bulk_create(exams, batch_size=500)
+
+            for exam in Exam.objects.all():
+                for stu in roster.get(exam.section_id, []):
+                    if rng.random() < 0.04:
+                        results.append(ExamResult(
+                            exam=exam, student=stu, marks_obtained=Decimal('0'),
+                            is_absent=True, remarks='Absent',
+                            entered_by_id=exam.conducted_by_id))
+                        continue
+                    # Marks loosely track the student's engagement level.
+                    base = reliability.get(stu.id, 0.85)
+                    frac = min(0.99, max(0.15, rng.gauss(base * 0.88, 0.14)))
+                    marks = Decimal(str(round(float(exam.max_marks) * frac, 1)))
+                    passed = marks >= exam.passing_marks
+                    results.append(ExamResult(
+                        exam=exam, student=stu, marks_obtained=marks, is_absent=False,
+                        remarks='Good' if frac > 0.75 else ('Pass' if passed else 'Needs improvement'),
+                        entered_by_id=exam.conducted_by_id))
+            ExamResult.objects.bulk_create(results, batch_size=1000)
+            self.stdout.write(f'✅ {len(exams)} exams, {len(results)} results')
+
+            # ── Resources ─────────────────────────────────────
+            # One real PDF generated once and reused, so downloads in the
+            # demo actually open instead of returning a broken file.
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import A4
+                buf = _io.BytesIO()
+                pdf = canvas.Canvas(buf, pagesize=A4)
+                pdf.setFont('Helvetica-Bold', 16)
+                pdf.drawString(72, 760, 'Smart Academic Dashboard')
+                pdf.setFont('Helvetica', 11)
+                pdf.drawString(72, 735, 'Sample study material for the demo deployment.')
+                pdf.drawString(72, 715, 'Replace with real course content in production.')
+                pdf.showPage()
+                pdf.save()
+                pdf_bytes = buf.getvalue()
+            except Exception:
+                pdf_bytes = b'Sample study material for the Smart Academic Dashboard demo.\n'
+
+            res_plan = [
+                ('Unit 1 — Lecture Notes', 'notes', 'Complete notes covering the first unit.'),
+                ('Assignment 1', 'assignment', 'Submit before the next sessional.'),
+                ('Previous Year Paper', 'pyq', 'Last year question paper for practice.'),
+            ]
+            made = 0
+            for subj in all_subjects:
+                for title, rtype, desc in res_plan:
+                    r = Resource(
+                        title=f"{title} — {subj.code}",
+                        description=desc,
+                        resource_type=rtype,
+                        subject=subj,
+                        uploaded_by=subj.faculty,
+                    )
+                    fname = f"{subj.code.lower()}_{rtype}.pdf"
+                    r.file.save(fname, ContentFile(pdf_bytes), save=False)
+                    r.save()
+                    made += 1
+            self.stdout.write(f'✅ {made} resources')
+
+            # ── Notices from the HOD ──────────────────────────
+            notice_plan = [
+                ('Sessional 2 Schedule Released',
+                 'The Sessional 2 timetable has been published. Please ensure syllabus '
+                 'coverage is complete and share the marking scheme with your sections.'),
+                ('Attendance Below 75% — Action Required',
+                 'Several students have fallen below the 75% attendance threshold. '
+                 'Kindly counsel the students in your sections and update their records.'),
+                ('Department Meeting — Friday 3 PM',
+                 'All faculty members are requested to attend the monthly department '
+                 'review meeting in the seminar hall.'),
+            ]
+            faculty_all = list(User.objects.filter(role='faculty').exclude(id=hod.id))
+            for title, body in notice_plan:
+                notice = Notice.objects.create(
+                    title=title, content=body, sent_by=hod, recipient_type='all_faculty')
+                for f in faculty_all:
+                    Notification.objects.create(
+                        recipient=f, title=f'New Notice: {title}',
+                        message=body[:140], notification_type='general')
+            self.stdout.write(f'✅ {len(notice_plan)} notices sent to faculty')
+
+            # A few unread student notifications so the bell shows a badge.
+            notif = []
+            for stu in User.objects.filter(role='student'):
+                notif.append(Notification(
+                    recipient=stu, title='New resource uploaded',
+                    message='Unit 1 lecture notes are now available for your subjects.',
+                    notification_type='resource'))
+                notif.append(Notification(
+                    recipient=stu, title='Sessional 2 marks published',
+                    message='Your Sessional 2 results have been published. Check the Marks page.',
+                    notification_type='marks'))
+            Notification.objects.bulk_create(notif, batch_size=500)
+            self.stdout.write(f'✅ {len(notif)} student notifications')
 
         self.stdout.write(self.style.SUCCESS('''
 🎉 Seeding complete! Credentials:
