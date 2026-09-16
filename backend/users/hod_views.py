@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -53,22 +54,22 @@ def hod_overview(request):
         subject__in=subjects_in_semesters
     ).count()
 
-    # Fixed low attendance calculation
-    low_attendance_count = 0
-    for student in students:
-        total_classes = AttendanceRecord.objects.filter(
-            student=student,
-            session__subject__in=subjects_in_semesters
-        ).count()
-        total_present = AttendanceRecord.objects.filter(
-            student=student,
-            session__subject__in=subjects_in_semesters,
-            status='present'
-        ).count()
-        if total_classes > 0:
-            percentage = (total_present / total_classes) * 100
-            if percentage < 75:
-                low_attendance_count += 1
+    # Aggregate attendance for every student in a single query. The previous
+    # per-student loop issued 2 queries each, which timed out against a
+    # network-attached database once the cohort grew past a few dozen.
+    in_scope = Q(attendance_records__session__subject__in=subjects_in_semesters)
+    student_totals = students.annotate(
+        total_classes=Count('attendance_records', filter=in_scope),
+        total_present=Count(
+            'attendance_records',
+            filter=in_scope & Q(attendance_records__status='present'),
+        ),
+    ).values_list('total_classes', 'total_present')
+
+    low_attendance_count = sum(
+        1 for total, present in student_totals
+        if total > 0 and (present / total) * 100 < 75
+    )
 
     total_exams = Exam.objects.filter(
         subject__in=subjects_in_semesters
@@ -118,12 +119,26 @@ def hod_students(request):
             last_name__icontains=search
         )
 
+    # Annotate attendance totals in one pass instead of two queries per
+    # student; the loop below then hits no database at all.
+    students = students.annotate(
+        total_classes=Count('attendance_records'),
+        total_present=Count(
+            'attendance_records',
+            filter=Q(attendance_records__status='present'),
+        ),
+    ).order_by(
+        'student_profile__semester',
+        'student_profile__section',
+        'student_profile__enrollment_number',
+    )
+
     data = []
     for student in students:
         try:
             profile = student.student_profile
-            total_classes = AttendanceRecord.objects.filter(student=student).count()
-            total_present = AttendanceRecord.objects.filter(student=student, status='present').count()
+            total_classes = student.total_classes
+            total_present = student.total_present
             percentage = round((total_present / total_classes * 100), 1) if total_classes > 0 else 0
             data.append({
                 'id': student.id,
@@ -216,35 +231,51 @@ def hod_attendance(request):
         department__name=department
     )
 
+    # Pre-aggregate everything the loop needs into three grouped queries, so
+    # the nested section/subject walk below touches the database zero times.
+    session_counts = {
+        (r['subject'], r['section']): r['n']
+        for r in AttendanceSession.objects
+            .filter(subject__in=subjects, section__in=sections)
+            .values('subject', 'section')
+            .annotate(n=Count('id'))
+    }
+    record_stats = {
+        (r['session__subject'], r['session__section']): (r['total'], r['present'])
+        for r in AttendanceRecord.objects
+            .filter(session__subject__in=subjects, session__section__in=sections)
+            .values('session__subject', 'session__section')
+            .annotate(
+                total=Count('id'),
+                present=Count('id', filter=Q(status='present')),
+            )
+    }
+    sections = sections.annotate(
+        student_count=Count('students', filter=Q(students__role='student')),
+    ).order_by('semester', 'name')
+    subjects = list(subjects.select_related('faculty'))
+
     data = []
     for section in sections:
-        students = section.students.filter(role='student')
         section_data = {
             'section_id': section.id,
             'section_name': f"Section {section.name} - Sem {section.semester}",
             'semester': section.semester,
-            'total_students': students.count(),
+            'total_students': section.student_count,
             'subjects': []
         }
 
-        for subject in subjects.filter(semester=section.semester):
-            total_sessions = AttendanceSession.objects.filter(
-                subject=subject, section=section
-            ).count()
+        for subject in subjects:
+            if subject.semester != section.semester:
+                continue
 
+            total_sessions = session_counts.get((subject.id, section.id), 0)
             if total_sessions == 0:
                 continue
 
-            present_count = AttendanceRecord.objects.filter(
-                session__subject=subject,
-                session__section=section,
-                status='present'
-            ).count()
-
-            total_records = AttendanceRecord.objects.filter(
-                session__subject=subject,
-                session__section=section
-            ).count()
+            total_records, present_count = record_stats.get(
+                (subject.id, section.id), (0, 0)
+            )
 
             avg_attendance = round(
                 (present_count / total_records * 100), 1
