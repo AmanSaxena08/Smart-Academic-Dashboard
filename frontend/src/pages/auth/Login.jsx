@@ -119,15 +119,19 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Demo accounts — zero-friction entry for reviewers */}
+        {/* Demo accounts — credentials shown, tap to sign in */}
         <div className="mt-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-px bg-gray-200 flex-1" />
-            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-              Or explore a demo
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Demo Accounts
             </span>
             <div className="h-px bg-gray-200 flex-1" />
           </div>
+
+          <p className="text-xs text-gray-500 text-center mb-3">
+            Tap any card to sign in instantly, or type the credentials above.
+          </p>
 
           <div className="space-y-2">
             {DEMO_ACCOUNTS.map((acct) => (
@@ -138,16 +142,26 @@ export default function Login() {
                 onClick={() =>
                   signIn({ username: acct.username, password: acct.password })
                 }
-                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 border rounded-lg text-left transition duration-200 disabled:opacity-50 ${acct.styles}`}
+                className={`w-full px-4 py-3 border rounded-lg text-left transition duration-200 disabled:opacity-50 ${acct.styles}`}
               >
-                <span className="text-sm font-semibold">View as {acct.role}</span>
-                <span className="text-xs opacity-70 hidden sm:block">{acct.blurb}</span>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-sm font-bold">{acct.role}</span>
+                  <span className="text-[10px] font-semibold opacity-60 whitespace-nowrap">
+                    TAP TO SIGN IN &rarr;
+                  </span>
+                </div>
+                <div className="font-mono text-xs opacity-90 flex flex-wrap gap-x-2">
+                  <span>{acct.username}</span>
+                  <span className="opacity-50">/</span>
+                  <span>{acct.password}</span>
+                </div>
+                <div className="text-[11px] opacity-60 mt-1">{acct.blurb}</div>
               </button>
             ))}
           </div>
 
           <p className="text-[11px] text-gray-400 text-center mt-3">
-            Read-only demo data. No sign-up required.
+            Shared demo data &mdash; no sign-up required.
           </p>
         </div>
 
