@@ -92,13 +92,20 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # ── Database ──────────────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
-    # Fix for dj-database-url compatibility
+    # dj-database-url expects the postgres:// scheme.
     if DATABASE_URL.startswith('postgresql://'):
         DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgres://', 1)
+    # Managed Postgres (Neon, Supabase, Render) requires TLS.
+    if 'sslmode=' not in DATABASE_URL:
+        DATABASE_URL += ('&' if '?' in DATABASE_URL else '?') + 'sslmode=require'
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
-            conn_max_age=600
+            conn_max_age=600,
+            # Serverless Postgres suspends idle connections. Without this,
+            # Django reuses a dead socket and throws OperationalError on the
+            # first request after the database wakes up.
+            conn_health_checks=True,
         )
     }
 else:

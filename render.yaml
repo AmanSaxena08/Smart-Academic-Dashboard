@@ -3,17 +3,38 @@ services:
     name: smart-academic-backend
     runtime: python
     rootDir: backend
+    plan: free
     buildCommand: "./build.sh"
     startCommand: "gunicorn core.wsgi:application"
     envVars:
+      # Neon connection string — set in the Render dashboard, never in source.
+      - key: DATABASE_URL
+        sync: false
+      # Generated once by Render and kept across deploys.
+      - key: SECRET_KEY
+        generateValue: true
       - key: DEBUG
-        value: false
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: smart-academic-dashboard-hi7g.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://smart-academic-frontend.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://smart-academic-dashboard-hi7g.onrender.com,https://smart-academic-frontend.onrender.com
+      - key: SEED_DEMO_DATA
+        value: "true"
+      # Set this in the Render dashboard, not here — it must not live in source.
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
 
   - type: static
     name: smart-academic-frontend
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://smart-academic-dashboard-hi7g.onrender.com/api
     routes:
       - type: rewrite
         source: /*
